@@ -181,23 +181,33 @@ create_ipsets() {
 create_nft_sets() {
     echo -e "${GREEN}Creating nftables table and sets...${NC}"
     
-    # Create table
+    # Create table first
     nft add table inet $NFT_TABLE 2>/dev/null || true
     
+    # Delete existing sets if they exist (to ensure clean state)
+    nft delete set inet $NFT_TABLE $NFT_SET_CF_V4 2>/dev/null || true
+    nft delete set inet $NFT_TABLE $NFT_SET_CF_V6 2>/dev/null || true
+    nft delete set inet $NFT_TABLE $NFT_SET_DEBUG_V4 2>/dev/null || true
+    nft delete set inet $NFT_TABLE $NFT_SET_DEBUG_V6 2>/dev/null || true
+    nft delete set inet $NFT_TABLE $NFT_SET_PORTS 2>/dev/null || true
+    
     # Create Cloudflare IPv4 set
-    nft add set inet $NFT_TABLE $NFT_SET_CF_V4 '{ type ipv4_addr; flags interval; }' 2>/dev/null || true
+    nft add set inet $NFT_TABLE $NFT_SET_CF_V4 '{ type ipv4_addr; flags interval; }'
     
     # Create Cloudflare IPv6 set
-    nft add set inet $NFT_TABLE $NFT_SET_CF_V6 '{ type ipv6_addr; flags interval; }' 2>/dev/null || true
+    nft add set inet $NFT_TABLE $NFT_SET_CF_V6 '{ type ipv6_addr; flags interval; }'
     
     # Create debug IPv4 set
-    nft add set inet $NFT_TABLE $NFT_SET_DEBUG_V4 '{ type ipv4_addr; flags interval; }' 2>/dev/null || true
+    nft add set inet $NFT_TABLE $NFT_SET_DEBUG_V4 '{ type ipv4_addr; flags interval; }'
     
     # Create debug IPv6 set
-    nft add set inet $NFT_TABLE $NFT_SET_DEBUG_V6 '{ type ipv6_addr; flags interval; }' 2>/dev/null || true
+    nft add set inet $NFT_TABLE $NFT_SET_DEBUG_V6 '{ type ipv6_addr; flags interval; }'
     
     # Create ports set
-    nft add set inet $NFT_TABLE $NFT_SET_PORTS '{ type inet_service; }' 2>/dev/null || true
+    nft add set inet $NFT_TABLE $NFT_SET_PORTS '{ type inet_service; }'
+    
+    echo -e "  ${GREEN}✓${NC} Created table: $NFT_TABLE"
+    echo -e "  ${GREEN}✓${NC} Created sets: ports, cf_ipv4, cf_ipv6, debug_ipv4, debug_ipv6"
 }
 
 # Update Cloudflare IPs
@@ -463,10 +473,17 @@ setup_nftables_rules() {
         return
     fi
     
+    # Ensure table and sets exist
+    if ! nft list table inet $NFT_TABLE &>/dev/null; then
+        echo -e "${YELLOW}Table doesn't exist, creating...${NC}"
+        create_nft_sets
+    fi
+    
     # Update ports set
     local port_elements=$(IFS=,; echo "${ports[*]}")
     nft flush set inet $NFT_TABLE $NFT_SET_PORTS 2>/dev/null || true
     nft add element inet $NFT_TABLE $NFT_SET_PORTS "{ $port_elements }"
+    echo -e "  ${GREEN}✓${NC} Added ports to set: ${ports[@]}"
     
     # Create base chain if it doesn't exist
     nft add chain inet $NFT_TABLE input '{ type filter hook input priority 0; }' 2>/dev/null || true
@@ -480,28 +497,45 @@ setup_nftables_rules() {
         log_option="log prefix \"CF-Blocked: \" limit rate 1/minute"
     fi
     
-    # Create the ruleset
-    cat > /tmp/nft_rules_$$.txt << EOF
+    # Create the ruleset with proper variable substitution
+    cat > /tmp/nft_rules_$$.txt << NFTEOF
 table inet $NFT_TABLE {
     chain input {
         type filter hook input priority 0;
         
         # Allow Cloudflare IPs to protected ports
-        tcp dport @$NFT_SET_PORTS ip saddr @$NFT_SET_CF_V4 accept
-        tcp dport @$NFT_SET_PORTS ip6 saddr @$NFT_SET_CF_V6 accept
+        tcp dport @${NFT_SET_PORTS} ip saddr @${NFT_SET_CF_V4} accept
+        tcp dport @${NFT_SET_PORTS} ip6 saddr @${NFT_SET_CF_V6} accept
         
         # Allow debug IPs to protected ports
-        tcp dport @$NFT_SET_PORTS ip saddr @$NFT_SET_DEBUG_V4 accept
-        tcp dport @$NFT_SET_PORTS ip6 saddr @$NFT_SET_DEBUG_V6 accept
+        tcp dport @${NFT_SET_PORTS} ip saddr @${NFT_SET_DEBUG_V4} accept
+        tcp dport @${NFT_SET_PORTS} ip6 saddr @${NFT_SET_DEBUG_V6} accept
         
         # Log and drop other connections to protected ports
-        tcp dport @$NFT_SET_PORTS $log_option drop
+        tcp dport @${NFT_SET_PORTS} ${log_option} drop
     }
 }
-EOF
+NFTEOF
     
     # Apply the ruleset
-    nft -f /tmp/nft_rules_$$.txt
+    if nft -f /tmp/nft_rules_$$.txt 2>/dev/null; then
+        echo -e "${GREEN}✓ nftables rules applied successfully${NC}"
+    else
+        echo -e "${YELLOW}Warning: Failed to apply some rules, trying alternative method${NC}"
+        
+        # Alternative method: add rules directly
+        nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} ip saddr @${NFT_SET_CF_V4} accept
+        nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} ip6 saddr @${NFT_SET_CF_V6} accept
+        nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} ip saddr @${NFT_SET_DEBUG_V4} accept
+        nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} ip6 saddr @${NFT_SET_DEBUG_V6} accept
+        
+        if [[ -n "$log_option" ]]; then
+            nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} log prefix \"CF-Blocked: \" limit rate 1/minute drop
+        else
+            nft add rule inet $NFT_TABLE input tcp dport @${NFT_SET_PORTS} drop
+        fi
+    fi
+    
     rm -f /tmp/nft_rules_$$.txt
     
     echo -e "${GREEN}nftables rules configured for ports: ${ports[@]}${NC}"
