@@ -105,7 +105,7 @@ init_config_dir() {
     # Initialize ports configuration file
     if [[ ! -f "$PORTS_FILE" ]]; then
         printf "%s\n" "${DEFAULT_PORTS[@]}" > "$PORTS_FILE"
-        echo -e "${GREEN}Initialized default ports: ${DEFAULT_PORTS[@]}${NC}"
+        echo -e "${GREEN}Initialized default ports: ${DEFAULT_PORTS[*]}${NC}"
     fi
     
     # Initialize debug IPs file
@@ -148,7 +148,7 @@ EOF
 # Get configured ports
 get_configured_ports() {
     if [[ -f "$PORTS_FILE" ]]; then
-        cat "$PORTS_FILE" | grep -v '^#' | grep -v '^$'
+        grep -v '^#' "$PORTS_FILE" | grep -v '^$'
     else
         printf "%s\n" "${DEFAULT_PORTS[@]}"
     fi
@@ -261,21 +261,21 @@ update_ipset_cloudflare_ips() {
     # Add IPv4 addresses
     local v4_count=0
     while IFS= read -r ip; do
-        if [[ ! -z "$ip" && ! "$ip" =~ ^# ]]; then
+        if [[ -n "$ip" && ! "$ip" =~ ^# ]]; then
             ipset add $IPSET_CF_V4 "$ip" -exist
             ((v4_count++))
         fi
-    done < $v4_file
+    done < "$v4_file"
     echo -e "  ${GREEN}Added $v4_count IPv4 ranges${NC}"
     
     # Add IPv6 addresses
     local v6_count=0
     while IFS= read -r ip; do
-        if [[ ! -z "$ip" && ! "$ip" =~ ^# ]]; then
+        if [[ -n "$ip" && ! "$ip" =~ ^# ]]; then
             ipset add $IPSET_CF_V6 "$ip" -exist
             ((v6_count++))
         fi
-    done < $v6_file
+    done < "$v6_file"
     echo -e "  ${GREEN}Added $v6_count IPv6 ranges${NC}"
 }
 
@@ -288,7 +288,7 @@ update_nft_cloudflare_ips() {
     local v4_elements=""
     local v4_count=0
     while IFS= read -r ip; do
-        if [[ ! -z "$ip" && ! "$ip" =~ ^# ]]; then
+        if [[ -n "$ip" && ! "$ip" =~ ^# ]]; then
             if [[ -n "$v4_elements" ]]; then
                 v4_elements="$v4_elements, $ip"
             else
@@ -296,13 +296,13 @@ update_nft_cloudflare_ips() {
             fi
             ((v4_count++))
         fi
-    done < $v4_file
+    done < "$v4_file"
     
     # Build IPv6 elements
     local v6_elements=""
     local v6_count=0
     while IFS= read -r ip; do
-        if [[ ! -z "$ip" && ! "$ip" =~ ^# ]]; then
+        if [[ -n "$ip" && ! "$ip" =~ ^# ]]; then
             if [[ -n "$v6_elements" ]]; then
                 v6_elements="$v6_elements, $ip"
             else
@@ -310,7 +310,7 @@ update_nft_cloudflare_ips() {
             fi
             ((v6_count++))
         fi
-    done < $v6_file
+    done < "$v6_file"
     
     # Update sets
     if [[ -n "$v4_elements" ]]; then
@@ -403,7 +403,8 @@ load_backup_ips() {
 setup_all_iptables_rules() {
     echo -e "${GREEN}Setting up iptables rules...${NC}"
     
-    local ports=($(get_configured_ports))
+    local ports
+    mapfile -t ports < <(get_configured_ports)
     
     if [[ ${#ports[@]} -eq 0 ]]; then
         echo -e "${YELLOW}Warning: No ports configured${NC}"
@@ -466,7 +467,8 @@ setup_nftables_rules() {
     echo -e "${GREEN}Setting up nftables rules...${NC}"
     
     # Get ports
-    local ports=($(get_configured_ports))
+    local ports
+    mapfile -t ports < <(get_configured_ports)
     
     if [[ ${#ports[@]} -eq 0 ]]; then
         echo -e "${YELLOW}Warning: No ports configured${NC}"
@@ -727,7 +729,8 @@ list_ips() {
 # List ports
 list_ports() {
     echo -e "${GREEN}=== Protected Ports ===${NC}"
-    local ports=($(get_configured_ports))
+    local ports
+    mapfile -t ports < <(get_configured_ports)
     
     if [[ ${#ports[@]} -eq 0 ]]; then
         echo "  (none)"
@@ -752,7 +755,8 @@ show_status() {
     
     # Show port status
     echo -e "${GREEN}Protected Ports:${NC}"
-    local ports=($(get_configured_ports))
+    local ports
+    mapfile -t ports < <(get_configured_ports)
     for port in "${ports[@]}"; do
         echo "  Port $port: ${GREEN}active${NC}"
     done
@@ -814,7 +818,7 @@ reload_debug_ips() {
     # Reload from file
     if [[ -f "$DEBUG_IPS_FILE" ]]; then
         while IFS= read -r ip; do
-            if [[ ! -z "$ip" && ! "$ip" =~ ^# ]]; then
+            if [[ -n "$ip" && ! "$ip" =~ ^# ]]; then
                 if [[ "$ip" =~ : ]]; then
                     if [[ "$FIREWALL_BACKEND" == "nftables" ]]; then
                         nft add element inet $NFT_TABLE $NFT_SET_DEBUG_V6 "{ $ip }" 2>/dev/null || true
@@ -915,20 +919,21 @@ stop_service() {
         # Remove nftables table
         nft delete table inet $NFT_TABLE 2>/dev/null || true
     else
-        local ports=($(get_configured_ports))
+        local ports
+        mapfile -t ports < <(get_configured_ports)
         
         for port in "${ports[@]}"; do
             local chain_name="${CHAIN_PREFIX}${port}"
             
             # Remove INPUT rules
-            iptables -D INPUT -p tcp --dport $port -j $chain_name 2>/dev/null || true
-            ip6tables -D INPUT -p tcp --dport $port -j $chain_name 2>/dev/null || true
+            iptables -D INPUT -p tcp --dport "$port" -j "$chain_name" 2>/dev/null || true
+            ip6tables -D INPUT -p tcp --dport "$port" -j "$chain_name" 2>/dev/null || true
             
             # Remove custom chain
-            iptables -F $chain_name 2>/dev/null || true
-            iptables -X $chain_name 2>/dev/null || true
-            ip6tables -F $chain_name 2>/dev/null || true
-            ip6tables -X $chain_name 2>/dev/null || true
+            iptables -F "$chain_name" 2>/dev/null || true
+            iptables -X "$chain_name" 2>/dev/null || true
+            ip6tables -F "$chain_name" 2>/dev/null || true
+            ip6tables -X "$chain_name" 2>/dev/null || true
         done
     fi
     
@@ -1072,7 +1077,7 @@ init_firewall() {
     echo ""
     echo -e "${GREEN}Initialization complete!${NC}"
     echo -e "${YELLOW}Firewall Backend: $FIREWALL_BACKEND${NC}"
-    echo -e "${YELLOW}Default protected ports: ${DEFAULT_PORTS[@]}${NC}"
+    echo -e "${YELLOW}Default protected ports: ${DEFAULT_PORTS[*]}${NC}"
     echo ""
     echo -e "Use ${BLUE}$0 add-port <port>${NC} to add more ports"
     echo -e "Use ${BLUE}$0 add-ip <IP>${NC} to add debug IPs"

@@ -131,11 +131,23 @@ chmod +x "$INSTALL_PATH"
 echo -e "${GREEN}cf-firewall installed to $INSTALL_PATH${NC}"
 echo ""
 
-# Initialize firewall
-read -p "Do you want to initialize the firewall now? (y/n) " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${GREEN}Initializing firewall...${NC}"
+# Check if we're running interactively or through pipe
+if [ -t 0 ]; then
+    # Interactive mode - can use read
+    read -p "Do you want to initialize the firewall now? (y/n) " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${GREEN}Initializing firewall...${NC}"
+        $INSTALL_PATH init
+    else
+        echo -e "${YELLOW}Firewall not initialized${NC}"
+        echo "Run 'cf-firewall init' when you're ready to start"
+    fi
+else
+    # Non-interactive mode (piped) - auto initialize
+    echo -e "${YELLOW}Running in non-interactive mode${NC}"
+    echo -e "${GREEN}Auto-initializing firewall...${NC}"
+    echo ""
     $INSTALL_PATH init
     echo ""
     echo -e "${GREEN}Installation complete!${NC}"
@@ -156,9 +168,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "   cf-firewall update"
     echo ""
     echo "For more commands, run: cf-firewall help"
-else
-    echo -e "${YELLOW}Firewall not initialized${NC}"
-    echo "Run 'cf-firewall init' when you're ready to start"
 fi
 
 echo ""
