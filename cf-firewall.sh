@@ -427,39 +427,39 @@ setup_iptables_port_rules() {
     echo -e "${BLUE}  Configuring port $port (iptables)...${NC}"
     
     # Create custom chain if it doesn't exist
-    iptables -N $chain_name 2>/dev/null || true
-    ip6tables -N $chain_name 2>/dev/null || true
+    iptables -N "$chain_name" 2>/dev/null || true
+    ip6tables -N "$chain_name" 2>/dev/null || true
     
     # Flush custom chain
-    iptables -F $chain_name
-    ip6tables -F $chain_name
+    iptables -F "$chain_name"
+    ip6tables -F "$chain_name"
     
     # IPv4 rules
-    iptables -A $chain_name -m set --match-set $IPSET_CF_V4 src -j ACCEPT
-    iptables -A $chain_name -m set --match-set $IPSET_DEBUG_V4 src -j ACCEPT
+    iptables -A "$chain_name" -m set --match-set $IPSET_CF_V4 src -j ACCEPT
+    iptables -A "$chain_name" -m set --match-set $IPSET_DEBUG_V4 src -j ACCEPT
     
     # Check if logging is enabled
     if grep -q "LOG_REJECTED=true" "$CONFIG_FILE" 2>/dev/null; then
-        iptables -A $chain_name -m limit --limit 1/min -j LOG --log-prefix "CF-Blocked-$port: " --log-level 4
+        iptables -A "$chain_name" -m limit --limit 1/min -j LOG --log-prefix "CF-Blocked-$port: " --log-level 4
     fi
-    iptables -A $chain_name -j DROP
+    iptables -A "$chain_name" -j DROP
     
     # IPv6 rules
-    ip6tables -A $chain_name -m set --match-set $IPSET_CF_V6 src -j ACCEPT
-    ip6tables -A $chain_name -m set --match-set $IPSET_DEBUG_V6 src -j ACCEPT
+    ip6tables -A "$chain_name" -m set --match-set $IPSET_CF_V6 src -j ACCEPT
+    ip6tables -A "$chain_name" -m set --match-set $IPSET_DEBUG_V6 src -j ACCEPT
     
     if grep -q "LOG_REJECTED=true" "$CONFIG_FILE" 2>/dev/null; then
-        ip6tables -A $chain_name -m limit --limit 1/min -j LOG --log-prefix "CF6-Blocked-$port: " --log-level 4
+        ip6tables -A "$chain_name" -m limit --limit 1/min -j LOG --log-prefix "CF6-Blocked-$port: " --log-level 4
     fi
-    ip6tables -A $chain_name -j DROP
+    ip6tables -A "$chain_name" -j DROP
     
     # Remove old INPUT rules if they exist
-    iptables -D INPUT -p $proto --dport $port -j $chain_name 2>/dev/null || true
-    ip6tables -D INPUT -p $proto --dport $port -j $chain_name 2>/dev/null || true
+    iptables -D INPUT -p $proto --dport $port -j "$chain_name" 2>/dev/null || true
+    ip6tables -D INPUT -p $proto --dport $port -j "$chain_name" 2>/dev/null || true
     
     # Add new INPUT rules
-    iptables -I INPUT -p $proto --dport $port -j $chain_name
-    ip6tables -I INPUT -p $proto --dport $port -j $chain_name
+    iptables -I INPUT -p $proto --dport $port -j "$chain_name"
+    ip6tables -I INPUT -p $proto --dport $port -j "$chain_name"
 }
 
 # Setup nftables rules
@@ -611,14 +611,14 @@ remove_port() {
         local chain_name="${CHAIN_PREFIX}${port}"
         
         # Remove INPUT rules
-        iptables -D INPUT -p tcp --dport $port -j $chain_name 2>/dev/null || true
-        ip6tables -D INPUT -p tcp --dport $port -j $chain_name 2>/dev/null || true
+        iptables -D INPUT -p tcp --dport $port -j "$chain_name" 2>/dev/null || true
+        ip6tables -D INPUT -p tcp --dport $port -j "$chain_name" 2>/dev/null || true
         
         # Remove custom chain
-        iptables -F $chain_name 2>/dev/null || true
-        iptables -X $chain_name 2>/dev/null || true
-        ip6tables -F $chain_name 2>/dev/null || true
-        ip6tables -X $chain_name 2>/dev/null || true
+        iptables -F "$chain_name" 2>/dev/null || true
+        iptables -X "$chain_name" 2>/dev/null || true
+        ip6tables -F "$chain_name" 2>/dev/null || true
+        ip6tables -X "$chain_name" 2>/dev/null || true
     fi
     
     echo -e "${GREEN}Removed port: $port${NC}"
