@@ -23,12 +23,14 @@ A comprehensive firewall management tool for restricting access to specific port
 ### Installation
 
 ```bash
+# Or use the install script
+curl -sSL https://raw.githubusercontent.com/axiilay/cf-firewall/main/install.sh | sudo bash
+```
+
+```bash
 # Download the script
 sudo wget -O /usr/local/bin/cf-firewall https://raw.githubusercontent.com/axiilay/cf-firewall/main/cf-firewall.sh
 sudo chmod +x /usr/local/bin/cf-firewall
-
-# Or use the install script
-curl -sSL https://raw.githubusercontent.com/axiilay/cf-firewall/main/install.sh | sudo bash
 ```
 
 ### Initialize (First Use)
