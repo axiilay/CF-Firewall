@@ -454,12 +454,12 @@ setup_iptables_port_rules() {
     ip6tables -A "$chain_name" -j DROP
     
     # Remove old INPUT rules if they exist
-    iptables -D INPUT -p $proto --dport $port -j "$chain_name" 2>/dev/null || true
-    ip6tables -D INPUT -p $proto --dport $port -j "$chain_name" 2>/dev/null || true
+    iptables -D INPUT -p $proto --dport "$port" -j "$chain_name" 2>/dev/null || true
+    ip6tables -D INPUT -p $proto --dport "$port" -j "$chain_name" 2>/dev/null || true
     
     # Add new INPUT rules
-    iptables -I INPUT -p $proto --dport $port -j "$chain_name"
-    ip6tables -I INPUT -p $proto --dport $port -j "$chain_name"
+    iptables -I INPUT -p $proto --dport "$port" -j "$chain_name"
+    ip6tables -I INPUT -p $proto --dport "$port" -j "$chain_name"
 }
 
 # Setup nftables rules
@@ -611,8 +611,8 @@ remove_port() {
         local chain_name="${CHAIN_PREFIX}${port}"
         
         # Remove INPUT rules
-        iptables -D INPUT -p tcp --dport $port -j "$chain_name" 2>/dev/null || true
-        ip6tables -D INPUT -p tcp --dport $port -j "$chain_name" 2>/dev/null || true
+        iptables -D INPUT -p tcp --dport "$port" -j "$chain_name" 2>/dev/null || true
+        ip6tables -D INPUT -p tcp --dport "$port" -j "$chain_name" 2>/dev/null || true
         
         # Remove custom chain
         iptables -F "$chain_name" 2>/dev/null || true
