@@ -378,8 +378,10 @@ load_backup_ips() {
             nft flush set inet $NFT_TABLE $NFT_SET_CF_V4
             nft flush set inet $NFT_TABLE $NFT_SET_CF_V6
             
-            local v4_elements=$(IFS=,; echo "${CF_IPV4[*]}")
-            local v6_elements=$(IFS=,; echo "${CF_IPV6[*]}")
+            local v4_elements
+            local v6_elements
+            v4_elements=$(IFS=,; echo "${CF_IPV4[*]}")
+            v6_elements=$(IFS=,; echo "${CF_IPV6[*]}")
             
             nft add element inet $NFT_TABLE $NFT_SET_CF_V4 "{ $v4_elements }"
             nft add element inet $NFT_TABLE $NFT_SET_CF_V6 "{ $v6_elements }"
@@ -482,10 +484,11 @@ setup_nftables_rules() {
     fi
     
     # Update ports set
-    local port_elements=$(IFS=,; echo "${ports[*]}")
+    local port_elements
+    port_elements=$(IFS=,; echo "${ports[*]}")
     nft flush set inet $NFT_TABLE $NFT_SET_PORTS 2>/dev/null || true
     nft add element inet $NFT_TABLE $NFT_SET_PORTS "{ $port_elements }"
-    echo -e "  ${GREEN}✓${NC} Added ports to set: ${ports[@]}"
+    echo -e "  ${GREEN}✓${NC} Added ports to set: ${ports[*]}"
     
     # Create base chain if it doesn't exist
     nft add chain inet $NFT_TABLE input '{ type filter hook input priority 0; }' 2>/dev/null || true
@@ -540,7 +543,7 @@ NFTEOF
     
     rm -f /tmp/nft_rules_$$.txt
     
-    echo -e "${GREEN}nftables rules configured for ports: ${ports[@]}${NC}"
+    echo -e "${GREEN}nftables rules configured for ports: ${ports[*]}${NC}"
 }
 
 # Setup all firewall rules based on backend
@@ -765,15 +768,23 @@ show_status() {
     # Show IP statistics
     echo -e "${GREEN}IP Statistics:${NC}"
     if [[ "$FIREWALL_BACKEND" == "nftables" ]]; then
-        local cf_v4_count=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V4 2>/dev/null | grep -c "\. \. " || echo 0)
-        local cf_v6_count=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V6 2>/dev/null | grep -c "\. \. " || echo 0)
-        local debug_v4_count=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V4 2>/dev/null | grep -c "\. \. " || echo 0)
-        local debug_v6_count=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V6 2>/dev/null | grep -c "\. \. " || echo 0)
+        local cf_v4_count
+        local cf_v6_count
+        local debug_v4_count
+        local debug_v6_count
+        cf_v4_count=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V4 2>/dev/null | grep -c "\. \. " || echo 0)
+        cf_v6_count=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V6 2>/dev/null | grep -c "\. \. " || echo 0)
+        debug_v4_count=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V4 2>/dev/null | grep -c "\. \. " || echo 0)
+        debug_v6_count=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V6 2>/dev/null | grep -c "\. \. " || echo 0)
     else
-        local cf_v4_count=$(ipset list $IPSET_CF_V4 2>/dev/null | grep -c '^[0-9]' || echo 0)
-        local cf_v6_count=$(ipset list $IPSET_CF_V6 2>/dev/null | grep -c '^[0-9a-f:]' || echo 0)
-        local debug_v4_count=$(ipset list $IPSET_DEBUG_V4 2>/dev/null | grep -c '^[0-9]' || echo 0)
-        local debug_v6_count=$(ipset list $IPSET_DEBUG_V6 2>/dev/null | grep -c '^[0-9a-f:]' || echo 0)
+        local cf_v4_count
+        local cf_v6_count
+        local debug_v4_count
+        local debug_v6_count
+        cf_v4_count=$(ipset list $IPSET_CF_V4 2>/dev/null | grep -c '^[0-9]' || echo 0)
+        cf_v6_count=$(ipset list $IPSET_CF_V6 2>/dev/null | grep -c '^[0-9a-f:]' || echo 0)
+        debug_v4_count=$(ipset list $IPSET_DEBUG_V4 2>/dev/null | grep -c '^[0-9]' || echo 0)
+        debug_v6_count=$(ipset list $IPSET_DEBUG_V6 2>/dev/null | grep -c '^[0-9a-f:]' || echo 0)
     fi
     
     echo "  Cloudflare IPv4: $cf_v4_count ranges"
@@ -798,7 +809,7 @@ clear_debug_ips() {
         ipset flush $IPSET_DEBUG_V4
         ipset flush $IPSET_DEBUG_V6
     fi
-    > "$DEBUG_IPS_FILE"
+    true > "$DEBUG_IPS_FILE"
     echo -e "${GREEN}Cleared all debug IPs${NC}"
 }
 
