@@ -79,9 +79,9 @@ jobs:
         if [ "${{ matrix.backend }}" = "iptables" ]; then
           sudo apt-get install -y nftables
           sudo cf-firewall switch-backend nftables
-          sudo cf-firewall status | grep "Firewall Backend: nftables"
+          sudo cf-firewall status | grep "Firewall Backend" | grep "nftables"
           sudo cf-firewall switch-backend iptables
-          sudo cf-firewall status | grep "Firewall Backend: iptables"
+          sudo cf-firewall status | grep "Firewall Backend" | grep "iptables"
         fi
     
     - name: Test status
