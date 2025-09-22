@@ -58,7 +58,7 @@ jobs:
     
     - name: Verify backend
       run: |
-        sudo cf-firewall status | grep "Firewall Backend: ${{ matrix.backend }}"
+        sudo cf-firewall status | grep "Firewall Backend" | grep "${{ matrix.backend }}"
     
     - name: Test port management
       run: |
