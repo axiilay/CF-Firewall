@@ -110,23 +110,23 @@ jobs:
       run: |
         cf-firewall help
 
-  test-centos:
-    runs-on: ubuntu-latest
-    container:
-      image: centos:8
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Install dependencies
-      run: |
-        yum install -y iptables ipset curl
-    
-    - name: Test installation
-      run: |
-        cp cf-firewall.sh /usr/local/bin/cf-firewall
-        chmod +x /usr/local/bin/cf-firewall
-    
-    - name: Test basic functionality
-      run: |
-        cf-firewall help
+test-rockylinux:
+  runs-on: ubuntu-latest
+  container:
+    image: rockylinux:8
+  
+  steps:
+  - uses: actions/checkout@v3
+  
+  - name: Install dependencies
+    run: |
+      dnf install -y iptables ipset curl
+  
+  - name: Test installation
+    run: |
+      cp cf-firewall.sh /usr/local/bin/cf-firewall
+      chmod +x /usr/local/bin/cf-firewall
+  
+  - name: Test basic functionality
+    run: |
+      cf-firewall help
