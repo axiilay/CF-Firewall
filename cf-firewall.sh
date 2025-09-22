@@ -698,26 +698,50 @@ remove_debug_ip() {
 list_ips() {
     if [[ "$FIREWALL_BACKEND" == "nftables" ]]; then
         echo -e "${GREEN}=== Cloudflare IPv4 ===${NC}"
-        nft list set inet $NFT_TABLE $NFT_SET_CF_V4 2>/dev/null | grep -A 100 "elements = {" | grep -v "elements = {" | grep -v "}"
+        local cf_v4
+        cf_v4=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V4 2>/dev/null | sed -n '/elements = {/,/}/p' | sed 's/elements = {//;s/}//;s/^[ \t]*//')
+        if [[ -n "$cf_v4" && "$cf_v4" != *"elements = { }"* ]]; then
+            echo "$cf_v4"
+        else
+            echo "  (empty)"
+        fi
         
         echo -e "${GREEN}=== Cloudflare IPv6 ===${NC}"
-        nft list set inet $NFT_TABLE $NFT_SET_CF_V6 2>/dev/null | grep -A 100 "elements = {" | grep -v "elements = {" | grep -v "}"
+        local cf_v6
+        cf_v6=$(nft list set inet $NFT_TABLE $NFT_SET_CF_V6 2>/dev/null | sed -n '/elements = {/,/}/p' | sed 's/elements = {//;s/}//;s/^[ \t]*//')
+        if [[ -n "$cf_v6" && "$cf_v6" != *"elements = { }"* ]]; then
+            echo "$cf_v6"
+        else
+            echo "  (empty)"
+        fi
         
         echo -e "${YELLOW}=== Debug IPv4 ===${NC}"
-        nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V4 2>/dev/null | grep -A 100 "elements = {" | grep -v "elements = {" | grep -v "}"
+        local debug_v4
+        debug_v4=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V4 2>/dev/null | sed -n '/elements = {/,/}/p' | sed 's/elements = {//;s/}//;s/^[ \t]*//')
+        if [[ -n "$debug_v4" && "$debug_v4" != *"elements = { }"* ]]; then
+            echo "$debug_v4"
+        else
+            echo "  (empty)"
+        fi
         
         echo -e "${YELLOW}=== Debug IPv6 ===${NC}"
-        nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V6 2>/dev/null | grep -A 100 "elements = {" | grep -v "elements = {" | grep -v "}"
+        local debug_v6
+        debug_v6=$(nft list set inet $NFT_TABLE $NFT_SET_DEBUG_V6 2>/dev/null | sed -n '/elements = {/,/}/p' | sed 's/elements = {//;s/}//;s/^[ \t]*//')
+        if [[ -n "$debug_v6" && "$debug_v6" != *"elements = { }"* ]]; then
+            echo "$debug_v6"
+        else
+            echo "  (empty)"
+        fi
     else
         echo -e "${GREEN}=== Cloudflare IPv4 ===${NC}"
-        ipset list $IPSET_CF_V4 | grep -E '^[0-9]' | head -10
-        if [[ $(ipset list $IPSET_CF_V4 | grep -c '^[0-9]') -gt 10 ]]; then
+        ipset list $IPSET_CF_V4 | grep -E '^[0-9]' | head -10 || echo "  (empty)"
+        if [[ $(ipset list $IPSET_CF_V4 | grep -c '^[0-9]' || echo 0) -gt 10 ]]; then
             echo "  ..."
         fi
         
         echo -e "${GREEN}=== Cloudflare IPv6 ===${NC}"
-        ipset list $IPSET_CF_V6 | grep -E '^[0-9a-f:]' | head -5
-        if [[ $(ipset list $IPSET_CF_V6 | grep -c '^[0-9a-f:]') -gt 5 ]]; then
+        ipset list $IPSET_CF_V6 | grep -E '^[0-9a-f:]' | head -5 || echo "  (empty)"
+        if [[ $(ipset list $IPSET_CF_V6 | grep -c '^[0-9a-f:]' || echo 0) -gt 5 ]]; then
             echo "  ..."
         fi
         
